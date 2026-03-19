@@ -227,10 +227,11 @@ scrapbook.createWindow = async function (createData) {
  * Simplified API to invoke a capture with an array of tasks.
  *
  * @param {Array} tasks
+ * @param {Object} [options]
  * @return {Promise<(Window|Tab)>}
  */
-scrapbook.invokeCapture = async function (tasks) {
-  return await scrapbook.invokeCaptureEx({taskInfo: {tasks}, waitForResponse: false});
+scrapbook.invokeCapture = async function (tasks, options) {
+  return await scrapbook.invokeCaptureEx({taskInfo: {tasks, ...options}, waitForResponse: false});
 };
 
 /**
@@ -309,6 +310,36 @@ scrapbook.invokeCaptureEx = async function ({
   await scrapbook.cache.set(key, taskInfo);
   const url = browser.runtime.getURL("capturer/capturer.html") + `?mid=${missionId}`;
 
+  // Resolve container (cookieStoreId) for Firefox containers support.
+  // Open the capturer in the same container as the target tab so that
+  // resource fetching uses the correct cookie store.
+  const cookieStoreId = await (async () => {
+    // Skip if contextualIdentities API is not available (e.g. Chromium).
+    if (!browser.contextualIdentities) {
+      return null;
+    }
+
+    let cookieStoreId = taskInfo.container;
+
+    // Use specified value when valid; or use default.
+    if (typeof cookieStoreId !== 'undefined') {
+      try {
+        await browser.contextualIdentities.get(cookieStoreId);
+      } catch (ex) {
+        return null;
+      }
+      return cookieStoreId;
+    }
+
+    // Infer from the tabId of the first task.
+    try {
+      ({cookieStoreId} = await browser.tabs.get(taskInfo.tasks[0].tabId));
+    } catch (ex) {
+      return null;
+    }
+    return cookieStoreId;
+  })();
+
   // launch capturer
   let tab;
   if (browser.windows) {
@@ -319,6 +350,7 @@ scrapbook.invokeCaptureEx = async function ({
       width: 400,
       height: 400,
       incognito: win.incognito,
+      ...(cookieStoreId && {cookieStoreId}),
     }, windowCreateData)));
 
     if (!waitForResponse) {
@@ -327,6 +359,7 @@ scrapbook.invokeCaptureEx = async function ({
   } else {
     tab = await browser.tabs.create(Object.assign({
       url,
+      ...(cookieStoreId && {cookieStoreId}),
     }, tabCreateData));
 
     if (!waitForResponse) {

@@ -73,6 +73,7 @@ const background = {
           url: tab.url,
           title: tab.title,
         })),
+        {container: tabs[0] && tabs[0].cookieStoreId},
       );
     },
 
@@ -85,6 +86,7 @@ const background = {
           title: tab.title,
           mode: "source",
         })),
+        {container: tabs[0] && tabs[0].cookieStoreId},
       );
     },
 
@@ -97,6 +99,7 @@ const background = {
           title: tab.title,
           mode: "bookmark",
         })),
+        {container: tabs[0] && tabs[0].cookieStoreId},
       );
     },
 
@@ -108,6 +111,7 @@ const background = {
           url: tab.url,
           title: tab.title,
         })),
+        container: tabs[0] && tabs[0].cookieStoreId,
       });
     },
 
@@ -924,14 +928,14 @@ function initMenusListener() {
       return scrapbook.invokeCapture([{
         url: info.frameUrl,
         mode: "source",
-      }]);
+      }], {container: tab.cookieStoreId});
     },
 
     captureFrameBookmark(info, tab) {
       return scrapbook.invokeCapture([{
         url: info.frameUrl,
         mode: "bookmark",
-      }]);
+      }], {container: tab.cookieStoreId});
     },
 
     captureFrameAs(info, tab) {
@@ -978,21 +982,21 @@ function initMenusListener() {
       return scrapbook.invokeCapture([{
         url: info.linkUrl,
         mode: "tab",
-      }]);
+      }], {container: tab.cookieStoreId});
     },
 
     captureLinkSource(info, tab) {
       return scrapbook.invokeCapture([{
         url: info.linkUrl,
         mode: "source",
-      }]);
+      }], {container: tab.cookieStoreId});
     },
 
     captureLinkBookmark(info, tab) {
       return scrapbook.invokeCapture([{
         url: info.linkUrl,
         mode: "bookmark",
-      }]);
+      }], {container: tab.cookieStoreId});
     },
 
     captureLinkAs(info, tab) {
@@ -1001,6 +1005,7 @@ function initMenusListener() {
           url: info.linkUrl,
           title: info.linkText,
         }],
+        container: tab.cookieStoreId,
       }, {ignoreTitle: true});
     },
 
@@ -1009,7 +1014,7 @@ function initMenusListener() {
         url: info.srcUrl,
         refUrl: info.pageUrl,
         mode: "source",
-      }]);
+      }], {container: tab.cookieStoreId});
     },
 
     captureMediaAs(info, tab) {
@@ -1018,6 +1023,7 @@ function initMenusListener() {
           url: info.srcUrl,
           refUrl: info.pageUrl,
         }],
+        container: tab.cookieStoreId,
       });
     },
   };

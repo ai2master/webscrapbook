@@ -1,0 +1,47 @@
+name: Build extension
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and upload artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Firefox MV2
+        run: |
+          npm run pack:firefox2
+          mv dist/webscrapbook.xpi dist/webscrapbook-firefox-mv2.xpi
+
+      - name: Build Firefox MV3
+        run: |
+          npm run pack:firefox3
+          mv dist/webscrapbook.xpi dist/webscrapbook-firefox-mv3.xpi
+
+      - name: Upload Firefox MV2 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webscrapbook-firefox-mv2
+          path: dist/webscrapbook-firefox-mv2.xpi
+
+      - name: Upload Firefox MV3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webscrapbook-firefox-mv3
+          path: dist/webscrapbook-firefox-mv3.xpi

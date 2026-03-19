@@ -1322,12 +1322,12 @@ capturer.captureTab = async function ({
 
   capturer.log(`Capturing (document) ${source} ...`);
 
-  // Do not capture a tab in a container different from the capturer
-  // to prevent an inconsistent result.
+  // Warn if the capturer is in a different container from the target tab,
+  // as some authenticated resources may not be fetched correctly.
   if (cookieStoreId) {
     const tab = await browser.tabs.getCurrent();
-    if (cookieStoreId !== tab.cookieStoreId) {
-      throw new Error(`Disallowed to capture a tab in container "${cookieStoreId}" from container "${tab.cookieStoreId}"`);
+    if (tab && cookieStoreId !== tab.cookieStoreId) {
+      capturer.warn(`Capturing a tab in container "${cookieStoreId}" from container "${tab.cookieStoreId}". Some authenticated resources may not be captured correctly.`);
     }
   }
 
@@ -1419,7 +1419,14 @@ capturer.captureRemoteTab = async function ({
 }) {
   capturer.log(`Launching remote tab ...`);
 
-  const tab = await browser.tabs.create({url, active: false});
+  // Inherit the capturer's container so remote tab shares the same cookies.
+  const currentTab = await browser.tabs.getCurrent().catch(() => null);
+  const cookieStoreId = currentTab && currentTab.cookieStoreId;
+  const tab = await browser.tabs.create({
+    url,
+    active: false,
+    ...(cookieStoreId && {cookieStoreId}),
+  });
   await scrapbook.waitTabLoading(tab);
 
   const delay = options["capture.remoteTabDelay"];
