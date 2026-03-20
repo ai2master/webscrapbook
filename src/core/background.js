@@ -65,6 +65,13 @@ const background = {
       });
     },
 
+    // [Container Fix / 容器修复]
+    // All captureTab* command handlers now pass the first highlighted tab's
+    // cookieStoreId as {container} so the capturer opens in the same
+    // Firefox container. This ensures cookies/sessions are shared correctly.
+    // 所有 captureTab* 命令处理器现在会将第一个选中标签页的 cookieStoreId
+    // 作为 {container} 传递，使 Capturer 打开在相同的 Firefox 容器中，
+    // 确保 Cookie/会话被正确共享。
     async captureTab() {
       const tabs = await scrapbook.getHighlightedTabs();
       return await scrapbook.invokeCapture(
@@ -924,6 +931,13 @@ function initMenusListener() {
       }]);
     },
 
+    // [Container Fix / 容器修复]
+    // Context menu handlers that capture by URL (not tabId) must explicitly
+    // pass {container: tab.cookieStoreId}, because there is no tabId for
+    // invokeCaptureEx to infer the container from automatically.
+    // 通过 URL（而非 tabId）捕获的右键菜单处理器必须显式传递
+    // {container: tab.cookieStoreId}，因为没有 tabId 供 invokeCaptureEx
+    // 自动推断容器。
     captureFrameSource(info, tab) {
       return scrapbook.invokeCapture([{
         url: info.frameUrl,
@@ -978,6 +992,14 @@ function initMenusListener() {
       });
     },
 
+    // [Container Fix / 容器修复]
+    // Link and media capture handlers: all URL-based captures pass
+    // tab.cookieStoreId so the capturer inherits the originating tab's
+    // container context. On Chromium, cookieStoreId is undefined and
+    // will be safely ignored.
+    // 链接和媒体捕获处理器：所有基于 URL 的捕获都传递 tab.cookieStoreId，
+    // 使 Capturer 继承发起标签页的容器上下文。在 Chromium 上，
+    // cookieStoreId 为 undefined，会被安全地忽略。
     captureLink(info, tab) {
       return scrapbook.invokeCapture([{
         url: info.linkUrl,

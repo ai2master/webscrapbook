@@ -79,6 +79,12 @@ function stringifyTasks(taskInfo) {
   // pre-defined order of keys for better userbility
   const info = {
     tasks: undefined,
+    // [Container Fix / 容器修复]
+    // Restored container field for the advanced capture dialog JSON editor.
+    // This allows users to view and edit the target container (cookieStoreId)
+    // in the advanced capture configuration.
+    // 为高级捕获对话框的 JSON 编辑器恢复 container 字段。
+    // 允许用户在高级捕获配置中查看和编辑目标容器（cookieStoreId）。
     container: undefined,
     bookId: undefined,
     parentId: undefined,

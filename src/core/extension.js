@@ -225,9 +225,22 @@ scrapbook.createWindow = async function (createData) {
 
 /**
  * Simplified API to invoke a capture with an array of tasks.
+ * 简化 API，用于通过任务数组发起捕获。
+ *
+ * [Container Fix / 容器修复]
+ * Added optional `options` parameter to support passing container info
+ * (e.g. {container: tab.cookieStoreId}) from callers.
+ * 新增可选的 `options` 参数，支持调用方传入容器信息
+ * （如 {container: tab.cookieStoreId}）。
+ * The options are spread into taskInfo so that invokeCaptureEx can
+ * resolve the correct cookieStoreId and open the capturer in the
+ * same container as the target tab.
+ * options 会被展开合并到 taskInfo 中，以便 invokeCaptureEx 能解析出
+ * 正确的 cookieStoreId，并在与目标标签页相同的容器中打开 Capturer。
  *
  * @param {Array} tasks
- * @param {Object} [options]
+ * @param {Object} [options] - additional taskInfo fields (e.g. {container})
+ *   额外的 taskInfo 字段（如 {container}）
  * @return {Promise<(Window|Tab)>}
  */
 scrapbook.invokeCapture = async function (tasks, options) {
@@ -310,28 +323,54 @@ scrapbook.invokeCaptureEx = async function ({
   await scrapbook.cache.set(key, taskInfo);
   const url = browser.runtime.getURL("capturer/capturer.html") + `?mid=${missionId}`;
 
+  // [Container Fix / 容器修复]
   // Resolve container (cookieStoreId) for Firefox containers support.
-  // Open the capturer in the same container as the target tab so that
-  // resource fetching uses the correct cookie store.
+  // 解析 Firefox 容器的 cookieStoreId。
+  //
+  // Core idea: open the capturer page in the SAME container as the
+  // target tab, so that the capturer's fetch/XHR uses the target
+  // container's cookie store. This ensures authenticated resources
+  // (e.g. images behind login) are downloaded with the correct session.
+  // 核心思路：将 Capturer 页面打开在与目标标签页相同的容器中，
+  // 这样 Capturer 的 fetch/XHR 会使用目标容器的 Cookie 存储，
+  // 确保需要认证的资源（如登录后的图片）能用正确的会话下载。
+  //
+  // This differs from the original v2.16.0 approach which opened the
+  // capturer in the default container and threw a hard error on mismatch.
+  // 这与原版 v2.16.0 的做法不同——原版将 Capturer 打开在默认容器中，
+  // 发现容器不匹配时直接抛出硬错误。
+  //
+  // Resolution priority / 解析优先级:
+  //   1. Explicit taskInfo.container (from context menu/command handlers)
+  //      显式的 taskInfo.container（来自右键菜单/命令处理器）
+  //   2. Inferred from the first task's tabId
+  //      从第一个任务的 tabId 推断
+  //   3. null (no container, default behavior)
+  //      null（无容器，默认行为）
   const cookieStoreId = await (async () => {
     // Skip if contextualIdentities API is not available (e.g. Chromium).
+    // Chromium 没有 contextualIdentities API，直接跳过。
     if (!browser.contextualIdentities) {
       return null;
     }
 
     let cookieStoreId = taskInfo.container;
 
-    // Use specified value when valid; or use default.
+    // Use the explicitly specified container if it's valid.
+    // 如果显式指定了容器，验证其有效性后使用。
     if (typeof cookieStoreId !== 'undefined') {
       try {
         await browser.contextualIdentities.get(cookieStoreId);
       } catch (ex) {
+        // Invalid container ID (e.g. deleted container); fall back to default.
+        // 无效的容器 ID（如已删除的容器），回退到默认行为。
         return null;
       }
       return cookieStoreId;
     }
 
     // Infer from the tabId of the first task.
+    // 从第一个任务的 tabId 推断容器。
     try {
       ({cookieStoreId} = await browser.tabs.get(taskInfo.tasks[0].tabId));
     } catch (ex) {
@@ -340,7 +379,13 @@ scrapbook.invokeCaptureEx = async function ({
     return cookieStoreId;
   })();
 
-  // launch capturer
+  // Launch capturer in the resolved container.
+  // 在解析出的容器中启动 Capturer。
+  // [Container Fix / 容器修复]
+  // Pass cookieStoreId to windows.create() / tabs.create() so the capturer
+  // page runs inside the target container's cookie scope.
+  // 将 cookieStoreId 传递给 windows.create() / tabs.create()，
+  // 使 Capturer 页面在目标容器的 Cookie 作用域内运行。
   let tab;
   if (browser.windows) {
     const win = await browser.windows.getCurrent();

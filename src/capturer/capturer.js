@@ -1322,8 +1322,20 @@ capturer.captureTab = async function ({
 
   capturer.log(`Capturing (document) ${source} ...`);
 
-  // Warn if the capturer is in a different container from the target tab,
-  // as some authenticated resources may not be fetched correctly.
+  // [Container Fix / 容器修复]
+  // Original behavior (v2.16.0): threw a hard error when the capturer and
+  // target tab were in different containers, completely blocking the capture.
+  // 原版行为（v2.16.0）：当 Capturer 和目标标签页在不同容器时，
+  // 直接抛出硬错误，完全阻止捕获。
+  //
+  // New behavior: since the capturer is now opened in the same container
+  // (see invokeCaptureEx in extension.js), this mismatch should rarely
+  // occur. If it does (e.g. capturer tab was reused), we log a warning
+  // instead of blocking, because partial capture is better than no capture.
+  // 新行为：由于 Capturer 现在会在相同容器中打开（见 extension.js 中的
+  // invokeCaptureEx），这种不匹配应该很少发生。如果确实出现（例如
+  // Capturer 标签页被复用），我们记录警告而非阻止捕获，
+  // 因为部分捕获好过完全无法捕获。
   if (cookieStoreId) {
     const tab = await browser.tabs.getCurrent();
     if (tab && cookieStoreId !== tab.cookieStoreId) {
@@ -1419,7 +1431,18 @@ capturer.captureRemoteTab = async function ({
 }) {
   capturer.log(`Launching remote tab ...`);
 
-  // Inherit the capturer's container so remote tab shares the same cookies.
+  // [Container Fix / 容器修复]
+  // When capturing a URL in "tab" mode, a new remote tab is created to
+  // load and render the page. We inherit the capturer's cookieStoreId
+  // so that the remote tab shares the same container (and thus the same
+  // cookies/session) as the capturer page.
+  // 当以 "tab" 模式捕获 URL 时，会创建一个新的远程标签页来加载和渲染页面。
+  // 我们继承 Capturer 的 cookieStoreId，使远程标签页与 Capturer 页面
+  // 处于相同的容器中（从而共享相同的 Cookie/会话）。
+  //
+  // Original behavior: created the remote tab without cookieStoreId,
+  // so it always opened in the default container.
+  // 原版行为：创建远程标签页时不传 cookieStoreId，因此总是在默认容器中打开。
   const currentTab = await browser.tabs.getCurrent().catch(() => null);
   const cookieStoreId = currentTab && currentTab.cookieStoreId;
   const tab = await browser.tabs.create({
